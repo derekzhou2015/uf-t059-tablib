@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Tests for Tablib."""
 
+import csv
 import datetime as dt
 import doctest
 import json
@@ -442,6 +443,26 @@ class TablibTestCase(BaseTestCase):
         _bunk = StringIO(
             '¡¡¡¡¡¡---///\n\n\n'
             '¡¡£™∞¢£§∞§¶•¶ª∞¶•ªº••ª–º§•†•§º¶•†¥ª–º•§ƒø¥¨©πƒø†ˆ¥ç©¨√øˆ¥≈†ƒ¥ç©ø¨çˆ¥ƒçø¶'
+        )
+        self.assertEqual(tablib.detect_format(_bunk), None)
+
+    def test_auto_format_detect_bytes(self):
+        """Byte streams must be detected the same way as text streams."""
+        _csv = b'1,2,3\n4,5,6\n7,8,9\n'
+        self.assertEqual(tablib.detect_format(_csv), 'csv')
+
+        _tsv = b'1\t2\t3\n4\t5\t6\n7\t8\t9\n'
+        self.assertEqual(tablib.detect_format(_tsv), 'tsv')
+
+        _json = b'[{"last_name": "Adams","age": 90,"first_name": "John"}]'
+        self.assertEqual(tablib.detect_format(_json), 'json')
+
+        _xlsx = self.founders.export('xlsx')
+        self.assertIsInstance(_xlsx, bytes)
+        self.assertEqual(tablib.detect_format(_xlsx), 'xlsx')
+
+        _bunk = BytesIO(
+            b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\x0b\x0c\x0e\x0f'
         )
         self.assertEqual(tablib.detect_format(_bunk), None)
 
@@ -957,6 +978,23 @@ class CSVTests(BaseTestCase):
         self.assertTrue(fmt.detect(_csv))
         self.assertFalse(fmt.detect(_bunk))
 
+    def test_csv_format_detect_bytes(self):
+        """CSV detection of byte streams matches text streams."""
+
+        _csv = BytesIO(b'1,2,3\n4,5,6\n7,8,9\n')
+        _bunk = BytesIO(b'\x00\x01\x02\x03\x04\x05\x06\x07\x08')
+
+        fmt = registry.get_format('csv')
+        self.assertTrue(fmt.detect(_csv))
+        self.assertFalse(fmt.detect(_bunk))
+
+    def test_csv_import_set_bytes_raises_csv_error(self):
+        """Byte streams are detected as CSV, but the import layer stays
+        text-only: importing one surfaces the csv module's own error
+        instead of silently failing detection."""
+        with self.assertRaises(csv.Error):
+            tablib.Dataset().load(b'1,2,3\n4,5,6\n7,8,9\n')
+
     def test_csv_import_set(self):
         """Generate and import CSV set serialization."""
         data.append(self.john)
@@ -1216,6 +1254,23 @@ class TSVTests(BaseTestCase):
         fmt = registry.get_format('tsv')
         self.assertTrue(fmt.detect(_tsv))
         self.assertFalse(fmt.detect(_bunk))
+
+    def test_tsv_format_detect_bytes(self):
+        """TSV detection of byte streams matches text streams."""
+
+        _tsv = BytesIO(b'1\t2\t3\n4\t5\t6\n7\t8\t9\n')
+        _bunk = BytesIO(b'\x00\x01\x02\x03\x04\x05\x06\x07\x08')
+
+        fmt = registry.get_format('tsv')
+        self.assertTrue(fmt.detect(_tsv))
+        self.assertFalse(fmt.detect(_bunk))
+
+    def test_tsv_import_set_bytes_raises_csv_error(self):
+        """Byte streams are detected as TSV, but the import layer stays
+        text-only: importing one surfaces the csv module's own error
+        instead of silently failing detection."""
+        with self.assertRaises(csv.Error):
+            tablib.Dataset().load(b'1\t2\t3\n4\t5\t6\n7\t8\t9\n')
 
     def test_tsv_export(self):
         """Verify exporting dataset object as TSV."""

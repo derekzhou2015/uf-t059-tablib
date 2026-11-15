@@ -57,7 +57,14 @@ class CSVFormat:
     def detect(cls, stream, delimiter=None):
         """Returns True if given stream is valid CSV."""
         try:
-            csv.Sniffer().sniff(stream.read(2048), delimiters=delimiter or cls.DEFAULT_DELIMITER)
+            sample = stream.read(2048)
+            if isinstance(sample, bytes):
+                # The sniffer only accepts text; decode the byte sample so
+                # detection of byte streams matches detection of text streams.
+                # Replacement of undecodable bytes is fine here: only the
+                # delimiter structure matters for sniffing.
+                sample = sample.decode('utf-8', errors='replace')
+            csv.Sniffer().sniff(sample, delimiters=delimiter or cls.DEFAULT_DELIMITER)
             return True
         except Exception:
             return False
